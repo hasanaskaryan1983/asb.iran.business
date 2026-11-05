@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from . import models, schemas, database
@@ -8,6 +9,16 @@ app = FastAPI(
     description="API برای بازار آنلاین خرید و فروش اسب در ایران",
     version="1.0.0"
 )
+
+# === اضافه کردن مجوز CORS برای ارتباط با فرانت‌اند ===
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # در حالت توسعه محلی اجازه دسترسی به همه را می‌دهد
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# ======================================================
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -39,7 +50,7 @@ def get_horse(horse_id: int, db: Session = Depends(database.get_db)):
 
 @app.post("/api/horses", response_model=schemas.HorseResponse)
 def create_horse(horse: schemas.HorseCreate, db: Session = Depends(database.get_db)):
-    db_horse = models.Horse(**horse.dict())
+    db_horse = models.Horse(**horse.model_dump())
     db.add(db_horse)
     db.commit()
     db.refresh(db_horse)
@@ -54,7 +65,7 @@ def update_horse(
     db_horse = db.query(models.Horse).filter(models.Horse.id == horse_id).first()
     if not db_horse:
         raise HTTPException(status_code=404, detail="اسب مورد نظر یافت نشد")
-    for key, value in horse_update.dict(exclude_unset=True).items():
+    for key, value in horse_update.model_dump(exclude_unset=True).items():
         setattr(db_horse, key, value)
     db.commit()
     db.refresh(db_horse)
